@@ -1,7 +1,10 @@
 // 响应式系统的作用及实现
 // ts-node vuejs-design-and-implement/reactive-system
 
-type Effect = ()=>void;
+type Effect = {
+  (): void,
+  deps: EffectSet[]
+};
 type EffectSet = Set<Effect>;
 
 type KeyVal = {[key: string | symbol]: any}
@@ -10,12 +13,30 @@ type KeyVal = {[key: string | symbol]: any}
 const bucket = new WeakMap<KeyVal, Map<string | symbol, EffectSet>>()
 
 let activeEffect: Effect;
-function effect(fn: Effect){
-  activeEffect = fn;
-  fn();  // 触发依赖收集
+function effect(fn: ()=>void){
+  const effectFn = ()=>{
+    // 调用cleanup函数完成清除工作
+    cleanup(effectFn)
+    activeEffect = effectFn;
+    fn();  // 触发依赖收集
+  }
+  // 用于存储与该副作用相关联的[依赖]集合
+  effectFn.deps = [] as EffectSet[]
+  effectFn();
+}
+
+function cleanup(effectFn: Effect){
+  // 在每次副作用执行前, 把该副作用从所有与之相关联的依赖集合中删除
+  for (let i = 0; i < effectFn.deps.length; i++) {
+    const deps = effectFn.deps[i]
+    deps.delete(effectFn)
+  }
+  // 重置deps数组
+  effectFn.deps.length = 0
 }
 
 const data: KeyVal = {
+  ok: true,
   msg: "hello effect"
 }
 
@@ -33,8 +54,18 @@ const obj = new Proxy(data, {
 })
 
 effect(()=>{
-  console.log(`data.msg changed: ${obj.msg}`);
+  console.log(`[e1] data.msg changed: ${obj.msg}`);
 })
+
+effect(()=>{
+  // 这个函数会同时作为ok,msg连个键的副作用
+  // 但是当ok = false时, 无论msg的值变为多少, 都不会影响函数的执行
+  // 也就是当ok = false时, msg的变化不应该再触发该副作用的执行
+  // 这就涉及到分支切换和cleanup
+  console.log(`[e2] `, obj.ok?("true "+obj.msg):"ok is false");
+})
+
+obj.ok = false
 
 setTimeout(()=>{
   obj.msg = "hello world";
@@ -54,6 +85,8 @@ function track(target: KeyVal, key: string | symbol){
     depsMap.set(key, (deps = new Set()))
   }
   deps.add(activeEffect)
+  // deps就是一个与当前副作用函数存在联系的依赖(也是副作用函数)集合
+  activeEffect.deps.push(deps)
 }
 
 // 修改数据时触发依赖(副作用)
