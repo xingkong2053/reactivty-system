@@ -76,14 +76,25 @@ const data: KeyVal = {
   foo: 1,
 }
 
-function computed(getter: ()=>any){
+function computed<T>(getter: ()=>T){
+  // val缓存计算属性结果
+  let val: T, dirty: boolean = true;
   const effectFn = effect(getter,{
-    lazy: true
+    lazy: true,
+    scheduler(){
+      // 每次getter中的依赖项改变时, 都会执行trigger, 进而执行scheduler,
+      // 那么将dirty变为true的工作就写在这里就行
+      dirty = true
+    }
   })
   return {
     // 当读取到.value时才去执行effectFn()
     get value(){
-      return effectFn()
+      if(dirty){
+        val = effectFn() as T;
+        dirty = false;
+      }
+      return val;
     },
     set value(val){
       console.error("计算属性不允许set");
