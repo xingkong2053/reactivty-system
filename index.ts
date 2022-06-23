@@ -10,7 +10,9 @@ type Effect = {
 };
 
 type EffectOptions = {
-  scheduler?: (fn: ()=>void)=>void
+  scheduler?: (fn: ()=>void)=>void,
+  // 懒执行
+  lazy?: boolean,
 }
 
 type EffectSet = Set<Effect>;
@@ -34,20 +36,27 @@ let activeEffect: Effect;
 // 在上例中如果没用activeEffect栈, 
 // 那么当读取obj.bar时, activeEffect将会是e2而不是e1
 const effectStack: Effect[] = []
-function effect(fn: ()=>void, options: EffectOptions = {}){
+function effect(fn: ()=>unknown, options: EffectOptions = {}){
   const effectFn = ()=>{
     // 调用cleanup函数完成清除工作
     cleanup(effectFn)
     activeEffect = effectFn;
     effectStack.push(effectFn)
-    fn();  // 触发依赖收集
+    // 将值返回出来,给计算属性调用
+    // const effectFn = effect(()=>obj.cnt + obj.foo, {lazy: true})
+    // const value = effectFn()
+    const res = fn();  // 触发依赖收集
     effectStack.pop()
     activeEffect = effectStack[effectStack.length - 1]
+    return res
   }
   effectFn.options = options
   // 用于存储与该副作用相关联的[依赖]集合
-  effectFn.deps = [] as EffectSet[]
-  effectFn();
+  effectFn.deps = [] as EffectSet[];
+  if(!options.lazy){
+    effectFn();
+  }
+  return effectFn
 }
 
 function cleanup(effectFn: Effect){
@@ -65,6 +74,21 @@ const data: KeyVal = {
   msg: "hello effect",
   cnt: 1,
   foo: 1,
+}
+
+function computed(getter: ()=>any){
+  const effectFn = effect(getter,{
+    lazy: true
+  })
+  return {
+    // 当读取到.value时才去执行effectFn()
+    get value(){
+      return effectFn()
+    },
+    set value(val){
+      console.error("计算属性不允许set");
+    }
+  }
 }
 
 const obj = new Proxy(data, {
@@ -129,6 +153,10 @@ setTimeout(()=>{
 for(let i=0; i<10; i++){
   obj.foo ++ ;
 }
+
+const bar = computed(()=>obj.foo + obj.cnt)
+// 当访问一个计算属性.value时, 才第一次触发effectFn
+console.log(bar.value)
 
 console.log("end. ")
 
