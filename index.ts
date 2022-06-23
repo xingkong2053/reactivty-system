@@ -67,7 +67,6 @@ const data: KeyVal = {
 
 const obj = new Proxy(data, {
   get(target, key){
-    if(!activeEffect) return;
     track(target, key)
     return target[key]
   },
@@ -129,6 +128,7 @@ console.log("end. ")
 
 // 读取数据时追踪依赖(副作用)
 function track(target: KeyVal, key: string | symbol){
+  if(!activeEffect) return;
   // depsMap:  key --> effects
   let depsMap = bucket.get(target);
   if(!depsMap){
