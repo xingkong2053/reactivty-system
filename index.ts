@@ -94,5 +94,20 @@ function trigger(target: KeyVal, key: string | symbol){
   const depsMap = bucket.get(target);
   if(!depsMap) return;
   const effects = depsMap.get(key)
-  effects && effects.forEach(fn=>fn())
+  // 之前是 effects && effects.forEach(effectFn=>effectFn())
+  // 但是这会出现一个问题
+  // 在依次执行effectFn时, 会依次执行 
+  //          effectFn --> 
+  //            cleanup -->
+  //              deps.delete(target) [1]
+  //            fn --> 
+  //              get obj[key] --> 
+  //                trace --> 
+  //                  deps.add(target) [2]
+  // 而在调用forEach遍历Set时, 如果一个值已经被访问过了, 但是该值被删除并重新添加到集合
+  // 且此时forEach遍历并没有结束, 那么该值会被重新访问
+  // 这样就会造成死循环, 解决方法就是将要执行的effects放到临时的新集合中,
+  // 并遍历这个新的集合
+  const effectsToRun = new Set(effects);
+  effectsToRun.forEach(effectFn=>effectFn())
 }
