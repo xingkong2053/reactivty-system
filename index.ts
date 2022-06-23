@@ -53,7 +53,8 @@ function cleanup(effectFn: Effect){
 
 const data: KeyVal = {
   ok: true,
-  msg: "hello effect"
+  msg: "hello effect",
+  cnt: 1,
 }
 
 const obj = new Proxy(data, {
@@ -79,6 +80,20 @@ effect(()=>{
   // 也就是当ok = false时, msg的变化不应该再触发该副作用的执行
   // 这就涉及到分支切换和cleanup
   console.log(`[e2] `, obj.ok?("true "+obj.msg):"ok is false");
+})
+
+effect(()=>{
+  // 在一个effect中对同一个key(cnt)的读取和设置
+  // 这会造成死循环, 为什么?
+  // 1. 当读取obj.cnt时, 会触发trace函数, 此时activeEffect 设置为 该箭头函数对应的effectFn
+  //    并收集effectFn
+  // 2. 当设置obj.cnt时(此时activeEffect并没有变), 会把所有相关的effectFn拿出来执行, 其中就包括该effectFn
+  // 然后又会重复执行1 ,2 造成死循环
+  // 解决方案: 在trigger中对执行effectFn进行过滤
+  const tmp = obj.cnt + 1;
+  console.log("[e3]", tmp);
+  obj.cnt = tmp;
+  
 })
 
 obj.ok = false
@@ -125,5 +140,8 @@ function trigger(target: KeyVal, key: string | symbol){
   // 这样就会造成死循环, 解决方法就是将要执行的effects放到临时的新集合中,
   // 并遍历这个新的集合
   const effectsToRun = new Set(effects);
-  effectsToRun.forEach(effectFn=>effectFn())
+  effectsToRun.forEach(effectFn=>{
+    if(effectFn === activeEffect) return;
+    effectFn()
+  })
 }
