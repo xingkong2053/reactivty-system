@@ -13,12 +13,28 @@ type KeyVal = {[key: string | symbol]: any}
 const bucket = new WeakMap<KeyVal, Map<string | symbol, EffectSet>>()
 
 let activeEffect: Effect;
+// 用于存放activeEffect的栈
+// 用于解决在嵌套调用effect(fn)时, activeEffect与当前所读取的key不匹配问题, 如
+// effect(()=>{
+//   console.log("e1")
+//   effect(()=>{
+//     console.log("e2")
+//     obj.foo
+//   })
+//   obj.bar
+// })
+// 在上例中如果没用activeEffect栈, 
+// 那么当读取obj.bar时, activeEffect将会是e2而不是e1
+const effectStack: Effect[] = []
 function effect(fn: ()=>void){
   const effectFn = ()=>{
     // 调用cleanup函数完成清除工作
     cleanup(effectFn)
     activeEffect = effectFn;
+    effectStack.push(effectFn)
     fn();  // 触发依赖收集
+    effectStack.pop()
+    activeEffect = effectStack[effectStack.length - 1]
   }
   // 用于存储与该副作用相关联的[依赖]集合
   effectFn.deps = [] as EffectSet[]
