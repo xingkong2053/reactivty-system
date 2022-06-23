@@ -3,8 +3,14 @@
 
 type Effect = {
   (): void,
-  deps: EffectSet[]
+  deps: EffectSet[],
+  options: EffectOptions,
 };
+
+type EffectOptions = {
+  scheduler?: (fn: ()=>void)=>void
+}
+
 type EffectSet = Set<Effect>;
 
 type KeyVal = {[key: string | symbol]: any}
@@ -26,7 +32,7 @@ let activeEffect: Effect;
 // 在上例中如果没用activeEffect栈, 
 // 那么当读取obj.bar时, activeEffect将会是e2而不是e1
 const effectStack: Effect[] = []
-function effect(fn: ()=>void){
+function effect(fn: ()=>void, options: EffectOptions = {}){
   const effectFn = ()=>{
     // 调用cleanup函数完成清除工作
     cleanup(effectFn)
@@ -36,6 +42,7 @@ function effect(fn: ()=>void){
     effectStack.pop()
     activeEffect = effectStack[effectStack.length - 1]
   }
+  effectFn.options = options
   // 用于存储与该副作用相关联的[依赖]集合
   effectFn.deps = [] as EffectSet[]
   effectFn();
@@ -55,6 +62,7 @@ const data: KeyVal = {
   ok: true,
   msg: "hello effect",
   cnt: 1,
+  foo: 1,
 }
 
 const obj = new Proxy(data, {
@@ -96,11 +104,28 @@ effect(()=>{
   
 })
 
+effect(()=>{
+  console.log("[e4]", obj.foo)
+}, {
+  // 可调度性:  当trigger触发副作用执行时, 用户可以决定副作用执行的时机
+  scheduler(fn){
+    // 交由宏任务进行处理
+    // 这样会当所有的同步任务执行完毕后, 在执行副作用
+    setTimeout(()=>fn())
+  }
+})
+
 obj.ok = false
 
 setTimeout(()=>{
   obj.msg = "hello world";
 }, 3000)
+
+for(let i=0; i<10; i++){
+  obj.foo ++ ;
+}
+
+console.log("end. ")
 
 // 读取数据时追踪依赖(副作用)
 function track(target: KeyVal, key: string | symbol){
@@ -142,6 +167,10 @@ function trigger(target: KeyVal, key: string | symbol){
   const effectsToRun = new Set(effects);
   effectsToRun.forEach(effectFn=>{
     if(effectFn === activeEffect) return;
-    effectFn()
+    if(effectFn.options.scheduler){
+      effectFn.options.scheduler(effectFn)
+    } else {
+      effectFn()
+    }
   })
 }
