@@ -1,3 +1,5 @@
+import * as jobQueue from "./job-queue"
+
 // 响应式系统的作用及实现
 // ts-node vuejs-design-and-implement/reactive-system
 
@@ -110,7 +112,11 @@ effect(()=>{
   scheduler(fn){
     // 交由宏任务进行处理
     // 这样会当所有的同步任务执行完毕后, 在执行副作用
-    setTimeout(()=>fn())
+    // setTimeout(()=>fn())
+
+    // 使用jobQueue可以省去同步代码的"中间状态"
+    jobQueue.addJob(fn)
+    jobQueue.flushJob()
   }
 })
 
