@@ -120,6 +120,37 @@ function computed<T>(getter: ()=>T){
   return obj;
 }
 
+function watch(source: any, cb: ()=>void){
+  effect(()=>traverse(source),{
+    scheduler(){
+      // 当数据发生变化时, 执行scheduler, 进而执行cb
+      // 其实scheduler更像是用于覆盖默认行为的一个选项
+      cb()
+    }
+  })
+}
+
+// 通用的读取操作
+// 当读取时activeEffect会成为响应式对象和其上的所有key的依赖
+function traverse(value: unknown, seen = new Set()){
+  // 如果读取的数据是原始值, 或者已经被读取过了, 就停止
+  if(typeof value !== "object" || value === null || seen.has(value)) return;
+  // 避免响应式对象循环引用在这里导致死循环, 如
+  // obj = {
+  //   foo: {
+  //     bar: obj.bar
+  //   },
+  //   bar: {
+  //     foo: obj.foo
+  //   }
+  // }
+  seen.add(value)
+  for (let item in value) {
+    traverse(value[item],seen)
+  }
+  return value
+}
+
 const obj = new Proxy(data, {
   get(target, key){
     track(target, key)
@@ -186,6 +217,10 @@ for(let i=0; i<10; i++){
 const bar = computed(()=>obj.foo + obj.cnt)
 // 当访问一个计算属性.value时, 才第一次触发effectFn
 console.log(bar.value)
+
+watch(obj, ()=>{
+  console.log("数据发生了变化");
+})
 
 console.log("end. ")
 
