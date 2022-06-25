@@ -39,7 +39,7 @@ export function effect(fn: () => unknown, options: EffectOptions = {}) {
   return effectFn
 }
 
-export function reactive<T extends Object>(data: T){
+export function reactive(data: Record<string | symbol, any>){
   return new Proxy(data, {
     get(target, key) {
       track(target, key)
