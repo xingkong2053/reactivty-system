@@ -42,22 +42,40 @@ export function computed<T>(getter: () => T) {
   return obj;
 }
 
-export function watch(source: any, cb: () => void) {
-  let getter;
+export function watch<T>(
+  source: T | {():T}, 
+  cb: (newVal?: T, oldVal?: T) => void
+) {
+  let getter: ()=>T;
   // 添加getter方式调用支持
   if(typeof source === "function"){
     // source是函数, 则说明用户传递的是getter
-    getter = source
+    getter = source as ()=>T
   } else {
     getter = () => traverse(source)
   }
-  effect(getter, {
+
+  // watch和computed中所谓的缓存, 是通过闭包来实现的
+  let oldVal: T, newVal : T;
+  const effectFn = effect(getter, {
+    // 这里为什么一定要标识lazy: true ?
+    // 当不是懒执行时, 会多执行一次不必要的getter() 
+    lazy: true,
     scheduler() {
+      // 2. 当依赖的响应式数据发生变化之后, 在trigger里面会调用scheduler
+      //    这时拿到的值就是新值
+      newVal = effectFn() as T;
+
       // 当数据发生变化时, 执行scheduler, 进而执行cb
       // 其实scheduler更像是用于覆盖默认行为的一个选项
-      cb()
+      cb(newVal, oldVal);
+
+      // 用户提供的cb掉完之后别忘了替换
+      oldVal = newVal;
     }
   })
+  // 1. 先手动调用副作用函数, 拿到的值是旧值
+  oldVal = effectFn() as T;
 }
 
 // 通用的读取操作

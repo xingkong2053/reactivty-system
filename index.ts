@@ -73,7 +73,14 @@ watch(obj, ()=>{
 watch(
   ()=>obj.foo,
   ()=>{
-    console.log("obj.foo 值变化了")
+    console.log("obj.foo 值变化了");
+  }
+)
+
+watch(
+  ()=>obj.foo as number,
+  (newVal, oldVal)=>{
+    console.log(`obj.foo 值变化了, 新值 ${newVal}, 旧值 ${oldVal}`);
   }
 )
 
