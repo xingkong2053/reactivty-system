@@ -44,7 +44,7 @@ export function computed<T>(getter: () => T) {
 
 export function watch<T>(
   source: T | {():T}, 
-  cb: (newVal?: T, oldVal?: T) => void,
+  cb: (newVal: T, oldVal: T, onInvalidate: (fn: ()=>void)=>void) => void,
   options: {immediate?:boolean} = {}
 ) {
   let getter: ()=>T;
@@ -58,15 +58,25 @@ export function watch<T>(
 
   // watch和computed中所谓的缓存, 是通过闭包来实现的
   let oldVal: T, newVal : T;
+  // 使用cleanup来存储用户传递的过期回调
+  let cleanup: ()=>void;
+  function _onInvalidate(fnCalledWhenInvalid/* 过期回调 */: ()=>void){
+    cleanup = fnCalledWhenInvalid
+  }
 
   const job = ()=>{
     // 2. 当依赖的响应式数据发生变化之后, 在trigger里面会调用scheduler
     //    这时拿到的值就是新值
     newVal = effectFn() as T;
 
+    // 在第二次调用cb之前, 先执行过期回调
+    // 过期回调中存放着用户自定义的"在新一次执行cb之前, 怎么处理上一次cb中的数据"这样的逻辑
+    // 比如打印一下日志啊, 修改一下闭包变量之类的. 
+    cleanup && cleanup();
+
     // 当数据发生变化时, 执行scheduler, 进而执行cb
     // 其实scheduler更像是用于覆盖默认行为的一个选项
-    cb(newVal, oldVal);
+    cb(newVal, oldVal, _onInvalidate);
 
     // 用户提供的cb掉完之后别忘了替换
     oldVal = newVal;

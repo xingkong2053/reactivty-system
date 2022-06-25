@@ -84,6 +84,30 @@ watch(
   }
 )
 
+function someAsyncFunc(): Promise<string>{
+  return new Promise(resolve=>{
+    setTimeout(()=>{
+      resolve("ok")
+    }, 3000)
+  })
+}
+
+let data: string = "";
+watch(
+  ()=>obj.foo as number,
+  async (newVal, oldVal, onInvalidate) => {
+    // 维护一个闭包变量来标识该副作用是否过期
+    let expire = false;
+    onInvalidate(()=>{
+      expire = true
+    });
+    const res = await someAsyncFunc();
+    if(!expire){
+      data = res
+    }
+  }
+)
+
 obj.foo ++; 
 
 console.log("end. ")
