@@ -44,7 +44,8 @@ export function computed<T>(getter: () => T) {
 
 export function watch<T>(
   source: T | {():T}, 
-  cb: (newVal?: T, oldVal?: T) => void
+  cb: (newVal?: T, oldVal?: T) => void,
+  options: {immediate?:boolean} = {}
 ) {
   let getter: ()=>T;
   // 添加getter方式调用支持
@@ -57,25 +58,35 @@ export function watch<T>(
 
   // watch和computed中所谓的缓存, 是通过闭包来实现的
   let oldVal: T, newVal : T;
+
+  const job = ()=>{
+    // 2. 当依赖的响应式数据发生变化之后, 在trigger里面会调用scheduler
+    //    这时拿到的值就是新值
+    newVal = effectFn() as T;
+
+    // 当数据发生变化时, 执行scheduler, 进而执行cb
+    // 其实scheduler更像是用于覆盖默认行为的一个选项
+    cb(newVal, oldVal);
+
+    // 用户提供的cb掉完之后别忘了替换
+    oldVal = newVal;
+  }
+
   const effectFn = effect(getter, {
     // 这里为什么一定要标识lazy: true ?
     // 当不是懒执行时, 会多执行一次不必要的getter() 
     lazy: true,
-    scheduler() {
-      // 2. 当依赖的响应式数据发生变化之后, 在trigger里面会调用scheduler
-      //    这时拿到的值就是新值
-      newVal = effectFn() as T;
-
-      // 当数据发生变化时, 执行scheduler, 进而执行cb
-      // 其实scheduler更像是用于覆盖默认行为的一个选项
-      cb(newVal, oldVal);
-
-      // 用户提供的cb掉完之后别忘了替换
-      oldVal = newVal;
-    }
+    scheduler: job
   })
-  // 1. 先手动调用副作用函数, 拿到的值是旧值
-  oldVal = effectFn() as T;
+
+  if(options.immediate){
+    // 如果用户设置了立即执行, 就立即执行用户的cb函数
+    // 注意此时的oldVal为undefined
+    job();
+  } else {
+    // 1. 先手动调用副作用函数, 拿到的值是旧值
+    oldVal = effectFn() as T;
+  }
 }
 
 // 通用的读取操作
