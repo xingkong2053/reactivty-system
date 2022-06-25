@@ -69,4 +69,14 @@ watch(obj, ()=>{
   console.log("数据发生了变化");
 })
 
+// watch使用getter调用的一种方式
+watch(
+  ()=>obj.foo,
+  ()=>{
+    console.log("obj.foo 值变化了")
+  }
+)
+
+obj.foo ++; 
+
 console.log("end. ")

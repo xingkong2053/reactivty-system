@@ -43,7 +43,15 @@ export function computed<T>(getter: () => T) {
 }
 
 export function watch(source: any, cb: () => void) {
-  effect(() => traverse(source), {
+  let getter;
+  // 添加getter方式调用支持
+  if(typeof source === "function"){
+    // source是函数, 则说明用户传递的是getter
+    getter = source
+  } else {
+    getter = () => traverse(source)
+  }
+  effect(getter, {
     scheduler() {
       // 当数据发生变化时, 执行scheduler, 进而执行cb
       // 其实scheduler更像是用于覆盖默认行为的一个选项
