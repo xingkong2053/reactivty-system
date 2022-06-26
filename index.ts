@@ -1,5 +1,5 @@
 import * as jobQueue from "./job-queue"
-import { effect, reactive } from "./effect"
+import { effect, reactive, readonly } from "./effect"
 import { computed, watch } from "./computed"
 
 // 响应式系统的作用及实现
@@ -137,5 +137,15 @@ effect(()=>{
 })
 
 obj.deep.code = 400
+
+const readonlyObj = readonly({
+  foo: {
+    bar: 1
+  }
+})
+
+readonlyObj.foo.bar ++;
+
+console.log(readonlyObj.foo.bar);
 
 console.log("end. ")

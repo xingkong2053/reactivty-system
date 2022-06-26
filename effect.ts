@@ -42,6 +42,14 @@ export function effect(fn: () => unknown, options: EffectOptions = {}) {
   return effectFn
 }
 
+export function shallowReadonly<T extends object>(data: T){
+  return reactive(data, {shallow: true, readonly: true})
+}
+
+export function readonly<T extends object>(data: T){
+  return reactive(data, {readonly: true})
+}
+
 export function shallowReactive<T extends object>(data: T){
   return reactive(data, {shallow: true});
 }
@@ -50,7 +58,10 @@ export function reactive<T extends object>(data: T, options: ReactiveOptions = {
   return new Proxy(data, {
     get(target, key, receiver) {
       const res = Reflect.get(target, key, receiver /* 指向创建后的代理对象 */)
-      track(target, key)
+      if(!options.readonly){
+        // 不对只读数据追踪依赖, 因为不能修改属性, 追踪依赖也没有用
+        track(target, key)
+      }
 
       if(options.shallow){
         // 浅响应直接返回值
@@ -59,7 +70,8 @@ export function reactive<T extends object>(data: T, options: ReactiveOptions = {
 
       if(typeof res === "object" && res !== null){
         // 深层响应式
-        return reactive(res as object)
+        // 只读数据应该是深层只读的, 即不仅属性不能修改, 属性的子属性也能修改
+        return options.readonly? readonly(res as object) : reactive(res as object)
       }
 
       // 使用target[key]会带来的问题, 如:
@@ -91,6 +103,10 @@ export function reactive<T extends object>(data: T, options: ReactiveOptions = {
       return Reflect.ownKeys(target)
     },
     set(target, key, newVal, receiver) {
+      if(options.readonly){
+        console.warn(`属性${key.toString()}是只读的`)
+        return true
+      }
       const oldVal = Reflect.get(target, key, receiver);
       // 这里判断一下当set调用时是添加新属性还是修改已有属性
       const type: 'SET' | 'ADD' = Object.prototype.hasOwnProperty.call(target, key) ? "SET" : "ADD";
@@ -105,6 +121,10 @@ export function reactive<T extends object>(data: T, options: ReactiveOptions = {
       return true
     },
     deleteProperty(target, key){
+      if(options.readonly){
+        console.warn(`属性${key.toString()}是只读的`)
+        return true
+      }
       const hadKey = Object.prototype.hasOwnProperty.call(target, key);
       const res = Reflect.deleteProperty(target, key);
       if(res && hadKey){
