@@ -75,11 +75,17 @@ export function reactive(data: Record<string | symbol, any>){
       return Reflect.ownKeys(target)
     },
     set(target, key, newVal, receiver) {
+      const oldVal = target[key];
       // 这里判断一下当set调用时是添加新属性还是修改已有属性
       const type: 'SET' | 'ADD' = Object.prototype.hasOwnProperty.call(target, key) ? "SET" : "ADD";
       // target[key] = newVal
       Reflect.set(target, key, newVal, receiver)
-      trigger(target, key, type) 
+
+      // 比较旧值和新值, 只有当他们不全等, 并且不都是NaN的时候才触发响应
+      // NaN !== NaN 这里需要注意
+      if(oldVal !== newVal && (oldVal ===  oldVal || newVal === newVal) /* 后边是为了处理NaN问题 */){
+        trigger(target, key, type) 
+      }
       return true
     },
     deleteProperty(target, key){
