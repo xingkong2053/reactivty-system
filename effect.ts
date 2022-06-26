@@ -16,6 +16,9 @@ let activeEffect: Effect;
 // 在上例中如果没用activeEffect栈, 
 // 那么当读取obj.bar时, activeEffect将会是e2而不是e1
 const effectStack: Effect[] = []
+// 人为的构造一个key来拦截for...in循环
+const ITERATE_KEY = Symbol()
+
 export function effect(fn: () => unknown, options: EffectOptions = {}) {
   const effectFn = () => {
     // 调用cleanup函数完成清除工作
@@ -64,10 +67,19 @@ export function reactive(data: Record<string | symbol, any>){
       track(target, key)
       return Reflect.has(target,key)
     },
+    ownKeys(target){
+      // 使用ownKeys拦截for ... in运算
+      // 将包含for ... in运算的副作用与ITERATE_KEY相关联
+      // 副作用执行时期: set trigger
+      track(target, ITERATE_KEY)
+      return Reflect.ownKeys(target)
+    },
     set(target, key, newVal, receiver) {
+      // 这里判断一下当set调用时是添加新属性还是修改已有属性
+      const type: 'SET' | 'ADD' = Object.prototype.hasOwnProperty.call(target, key) ? "SET" : "ADD";
       // target[key] = newVal
       Reflect.set(target, key, newVal, receiver)
-      trigger(target, key) 
+      trigger(target, key, type) 
       return true
     }
   })
@@ -103,7 +115,7 @@ export function track(target: KeyVal, key: string | symbol) {
 }
 
 // 修改数据时触发依赖(副作用)
-export function trigger(target: KeyVal, key: string | symbol) {
+export function trigger(target: KeyVal, key: string | symbol, type?: 'SET' | 'ADD') {
   const depsMap = bucket.get(target);
   if (!depsMap) return;
   const effects = depsMap.get(key)
@@ -122,6 +134,15 @@ export function trigger(target: KeyVal, key: string | symbol) {
   // 这样就会造成死循环, 解决方法就是将要执行的effects放到临时的新集合中,
   // 并遍历这个新的集合
   const effectsToRun = new Set(effects);
+
+  // 只有在添加新的属性时才去触发和ITERATE_KEY相关的副作用
+  if(type === "ADD"){
+    const iterateEffects = depsMap.get(ITERATE_KEY)
+    iterateEffects && iterateEffects.forEach(
+      effectFn => effectsToRun.add(effectFn)
+    )
+  }
+
   effectsToRun.forEach(effectFn => {
     if (effectFn === activeEffect) return;
     if (effectFn.options.scheduler) {

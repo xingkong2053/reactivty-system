@@ -117,4 +117,14 @@ effect(()=>{
 
 delete obj.foo;
 
+effect(()=>{
+  const arr: string[] = []
+  for (const key in obj) {
+    arr.push(key)
+  }
+  console.log("obj keys: ", arr)
+})
+
+obj.bar = "bar"
+
 console.log("end. ")
