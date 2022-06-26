@@ -81,6 +81,14 @@ export function reactive(data: Record<string | symbol, any>){
       Reflect.set(target, key, newVal, receiver)
       trigger(target, key, type) 
       return true
+    },
+    deleteProperty(target, key){
+      const hadKey = Object.prototype.hasOwnProperty.call(target, key);
+      const res = Reflect.deleteProperty(target, key);
+      if(res && hadKey){
+        trigger(target, key, "DELETE")
+      }
+      return res
     }
   })
 }
@@ -115,7 +123,7 @@ export function track(target: KeyVal, key: string | symbol) {
 }
 
 // 修改数据时触发依赖(副作用)
-export function trigger(target: KeyVal, key: string | symbol, type?: 'SET' | 'ADD') {
+export function trigger(target: KeyVal, key: string | symbol, type?: 'SET' | 'ADD' | 'DELETE') {
   const depsMap = bucket.get(target);
   if (!depsMap) return;
   const effects = depsMap.get(key)
@@ -135,8 +143,8 @@ export function trigger(target: KeyVal, key: string | symbol, type?: 'SET' | 'AD
   // 并遍历这个新的集合
   const effectsToRun = new Set(effects);
 
-  // 只有在添加新的属性时才去触发和ITERATE_KEY相关的副作用
-  if(type === "ADD"){
+  // 只有在添加或删除新的属性时才去触发和ITERATE_KEY相关的副作用
+  if(type === "ADD" || type === "DELETE"){
     const iterateEffects = depsMap.get(ITERATE_KEY)
     iterateEffects && iterateEffects.forEach(
       effectFn => effectsToRun.add(effectFn)

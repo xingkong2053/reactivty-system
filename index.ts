@@ -125,6 +125,8 @@ effect(()=>{
   console.log("obj keys: ", arr)
 })
 
+delete obj.foo;
+
 obj.bar = "bar"
 
 console.log("end. ")
