@@ -59,6 +59,11 @@ export function reactive(data: Record<string | symbol, any>){
       // return target[key]
       return Reflect.get(target, key, receiver /* 指向创建后的代理对象 */)
     },
+    has(target, key){
+      // 使用has拦截 'foo' in p 操作
+      track(target, key)
+      return Reflect.has(target,key)
+    },
     set(target, key, newVal, receiver) {
       // target[key] = newVal
       Reflect.set(target, key, newVal, receiver)

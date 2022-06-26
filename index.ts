@@ -110,4 +110,11 @@ watch(
 
 obj.foo ++; 
 
+effect(()=>{
+  // 使用has拦截in操作符
+  console.log(`foo in obj: ${'foo' in obj}`)
+})
+
+delete obj.foo;
+
 console.log("end. ")
