@@ -1,4 +1,4 @@
-import { Effect, EffectOptions, EffectSet, KeyVal } from './type';
+import { Effect, EffectOptions, EffectSet, KeyVal, ReactiveOptions } from './type';
 // 存放副作用的桶
 const bucket = new WeakMap<KeyVal, Map<string | symbol, EffectSet>>()
 
@@ -42,10 +42,26 @@ export function effect(fn: () => unknown, options: EffectOptions = {}) {
   return effectFn
 }
 
-export function reactive(data: Record<string | symbol, any>){
+export function shallowReactive<T extends object>(data: T){
+  return reactive(data, {shallow: true});
+}
+
+export function reactive<T extends object>(data: T, options: ReactiveOptions = {}): T{
   return new Proxy(data, {
     get(target, key, receiver) {
+      const res = Reflect.get(target, key, receiver /* 指向创建后的代理对象 */)
       track(target, key)
+
+      if(options.shallow){
+        // 浅响应直接返回值
+        return res
+      }
+
+      if(typeof res === "object" && res !== null){
+        // 深层响应式
+        return reactive(res as object)
+      }
+
       // 使用target[key]会带来的问题, 如:
       // let obj = {
       //   foo: 1,
@@ -60,7 +76,7 @@ export function reactive(data: Record<string | symbol, any>){
       // 所以我们在获取对象属性时, 要修改这个属性getter函数内部的this值
       // 这就要使用Reflect.get()
       // return target[key]
-      return Reflect.get(target, key, receiver /* 指向创建后的代理对象 */)
+      return res
     },
     has(target, key){
       // 使用has拦截 'foo' in p 操作

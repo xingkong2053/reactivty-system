@@ -9,6 +9,9 @@ const obj = reactive({
   msg: "hello effect",
   cnt: 1,
   foo: 1,
+  deep: {
+    code: 200,
+  }
 })
 
 effect(()=>{
@@ -123,8 +126,16 @@ effect(()=>{
   console.log("[e6]","obj keys: ", arr)
 })
 
+// @ts-ignore
 delete obj.foo;
 
+// @ts-ignore
 obj.bar = "bar"
+
+effect(()=>{
+  console.log("[e7]", obj.deep.code)
+})
+
+obj.deep.code = 400
 
 console.log("end. ")

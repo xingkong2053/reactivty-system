@@ -13,3 +13,8 @@ export type EffectOptions = {
 export type EffectSet = Set<Effect>;
 
 export type KeyVal = { [key: string | symbol]: any }
+
+export interface ReactiveOptions {
+  shallow?: boolean,
+  readonly?: boolean,
+}
