@@ -51,6 +51,11 @@ effect(()=>{
   }
 })
 
+effect(()=>{
+  // 使用has拦截in操作符
+  console.log("[e5]",`foo in obj: ${'foo' in obj}`)
+})
+
 obj.ok = false
 
 setTimeout(()=>{
@@ -111,18 +116,11 @@ watch(
 obj.foo ++; 
 
 effect(()=>{
-  // 使用has拦截in操作符
-  console.log(`foo in obj: ${'foo' in obj}`)
-})
-
-delete obj.foo;
-
-effect(()=>{
   const arr: string[] = []
   for (const key in obj) {
     arr.push(key)
   }
-  console.log("obj keys: ", arr)
+  console.log("[e6]","obj keys: ", arr)
 })
 
 delete obj.foo;
