@@ -75,7 +75,7 @@ export function reactive(data: Record<string | symbol, any>){
       return Reflect.ownKeys(target)
     },
     set(target, key, newVal, receiver) {
-      const oldVal = target[key];
+      const oldVal = Reflect.get(target, key, receiver);
       // 这里判断一下当set调用时是添加新属性还是修改已有属性
       const type: 'SET' | 'ADD' = Object.prototype.hasOwnProperty.call(target, key) ? "SET" : "ADD";
       // target[key] = newVal
